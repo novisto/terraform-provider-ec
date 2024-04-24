@@ -65,6 +65,30 @@ func read(_ context.Context, d *schema.ResourceData, meta interface{}) diag.Diag
 		)
 	}
 
+	if len(res.Resources.Elasticsearch) == 0 {
+		for i := 0; i < 5; i++ {
+			res, err = deploymentapi.Get(deploymentapi.GetParams{
+				API:          client,
+				DeploymentID: deploymentID,
+				QueryParams: deputil.QueryParams{
+					ShowPlans:        true,
+					ShowSettings:     true,
+					ShowMetadata:     true,
+					ShowPlanDefaults: true,
+				},
+			})
+			if err != nil {
+				return diag.FromErr(
+					multierror.NewPrefixed("failed retrieving deployment information", err),
+				)
+			}
+
+			if len(res.Resources.Elasticsearch) != 0 {
+				break
+			}
+		}
+	}
+
 	d.SetId(deploymentID)
 
 	if err := modelToState(d, res); err != nil {

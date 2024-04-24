@@ -54,6 +54,30 @@ func readResource(_ context.Context, d *schema.ResourceData, meta interface{}) d
 		return diag.FromErr(multierror.NewPrefixed("failed reading deployment", err))
 	}
 
+	if len(res.Resources.Elasticsearch) == 0 {
+		for i := 0; i < 5; i++ {
+			res, err = deploymentapi.Get(deploymentapi.GetParams{
+				API: client, DeploymentID: d.Id(),
+				QueryParams: deputil.QueryParams{
+					ShowSettings:     true,
+					ShowPlans:        true,
+					ShowMetadata:     true,
+					ShowPlanDefaults: true,
+				},
+			})
+			if err != nil {
+				if deploymentNotFound(err) {
+					d.SetId("")
+					return nil
+				}
+				return diag.FromErr(multierror.NewPrefixed("failed reading deployment", err))
+			}
+			if len(res.Resources.Elasticsearch) != 0 {
+				break
+			}
+		}
+	}
+
 	if !hasRunningResources(res) {
 		d.SetId("")
 		return nil
